@@ -38,18 +38,12 @@ class PhotosCollectionViewController: UICollectionViewController {
     override func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "cell", for: indexPath) as! PhotoCell
         
-        let image = images[indexPath.item]
-
-        DispatchQueue.global().async {
-            guard let stringURL = image.small else { return }
-            guard let imageURL = URL(string: stringURL) else { return }
-            guard let imageData = try? Data(contentsOf: imageURL) else { return }
-            
-            DispatchQueue.main.async {
-                cell.imageView.image = UIImage(data: imageData)
-            }
-        }
+        let imageUrl = images[indexPath.item].small ?? ""
         
+        NetworkManager.shared.fetchDataImage(imageUrl: imageUrl) { (data) in
+            cell.imageView.image = UIImage(data: data)
+        }
+
         return cell
     }
     
@@ -61,6 +55,24 @@ class PhotosCollectionViewController: UICollectionViewController {
     }
 
     // MARK: - Private methods
+    private func showListPhotos(page: Int, orderBy: OrderBy) {
+        NetworkManager.shared.fetchListPhotos(page: page, perPage: 20, orderBy: orderBy) { urls in
+            self.images.append(contentsOf: urls)
+            DispatchQueue.main.async {
+                self.collectionView.reloadData()
+            }
+        }
+    }
+    
+    private func updateListPhotos(page: Int, orderBy: OrderBy) {
+        NetworkManager.shared.fetchListPhotos(page: page, perPage: 20, orderBy: orderBy) { urls in
+            self.images = urls
+            DispatchQueue.main.async {
+                self.collectionView.reloadData()
+            }
+        }
+    }
+    
     private func setupSearchBar() {
         let searchController = UISearchController(searchResultsController: nil)
         navigationItem.searchController = searchController
@@ -94,24 +106,6 @@ class PhotosCollectionViewController: UICollectionViewController {
         rightButton.setImage(UIImage(systemName: "rectangle.grid.2x2"), for: .normal)
         navigationItem.rightBarButtonItem = UIBarButtonItem.init(customView: rightButton)
         rightButton.addTarget(self, action: #selector(buttonPressed), for: UIControl.Event.touchUpInside)
-    }
-    
-    private func showListPhotos(page: Int, orderBy: OrderBy) {
-        NetworkManager.shared.fetchListPhotos(page: page, perPage: 30, orderBy: orderBy) { urls in
-            self.images.append(contentsOf: urls)
-            DispatchQueue.main.async {
-                self.collectionView.reloadData()
-            }
-        }
-    }
-    
-    private func updateListPhotos(page: Int, orderBy: OrderBy) {
-        NetworkManager.shared.fetchListPhotos(page: page, perPage: 30, orderBy: orderBy) { urls in
-            self.images = urls
-            DispatchQueue.main.async {
-                self.collectionView.reloadData()
-            }
-        }
     }
     
     // MARK: - Actions
@@ -187,7 +181,7 @@ extension PhotosCollectionViewController: UISearchBarDelegate {
         print(searchText)
         
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: false, block: { (_) in
-            NetworkManager.shared.fetchSearchPhoto(searchTerm: searchText, page: self.page, perPage: 100) { [weak self] (urls) in
+            NetworkManager.shared.fetchSearchPhoto(searchTerm: searchText, page: self.page, perPage: 20) { [weak self] (urls) in
                 self?.images = urls
 
                 DispatchQueue.main.async {

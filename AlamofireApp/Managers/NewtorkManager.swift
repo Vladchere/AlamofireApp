@@ -14,19 +14,24 @@ class NetworkManager {
     static let shared = NetworkManager()
     private init() {}
     
+    private let url = "https://api.unsplash.com"
+    private let headers: HTTPHeaders = [
+        "Authorization":
+        "Client-ID 8J_Nydt1h5gF5ANS5x1eM-VBGTnRk4xFCgCdIU4aGYs"
+    ]
+    
     func fetchSearchPhoto(searchTerm: String,
                           page: Int,
                           perPage: Int,
                           completion: @escaping ([URLS]) -> Void) {
-        var url = "https://api.unsplash.com/search/photos"
+        
+        var url = self.url
+        url += "/search/photos"
         url += "?query=\(searchTerm)"
         url += "&page=\(String(page))"
         url += "&per_page=\(String(perPage))"
         
-        let headers: HTTPHeaders = [
-            "Authorization":
-            "Client-ID 8J_Nydt1h5gF5ANS5x1eM-VBGTnRk4xFCgCdIU4aGYs"
-        ]
+        let headers = self.headers
         
         AF.request(url, headers: headers)
             .validate()
@@ -34,26 +39,20 @@ class NetworkManager {
                 switch response.result {
                 case .success(let value):
                     guard let jsonData = value as? [String: Any] else { return }
-                    
                     guard let results = jsonData["results"] as? [[String: Any]] else { return }
                     
                     var urlData: [[String: Any]] = []
                     var urls = [URLS]()
                     
                     for dictResult in results {
-                        urlData.append(dictResult["urls"] as! [String : Any])
+                        urlData.append(dictResult["urls"] as? [String : Any] ?? ["": ""])
                     }
                     
                     for url in urlData {
-                        let urlModel = URLS(raw: url["raw"] as? String,
-                                            full: url["full"] as? String,
-                                            regular: url["regular"] as? String,
-                                            small: url["small"] as? String,
-                                            thumb: url["thumb"] as? String)
+                        let urlModel = URLS(url: url)
                         urls.append(urlModel)
                     }
                     completion(urls)
-                    
                 case .failure(let error):
                     print(error)
                 }
@@ -65,44 +64,51 @@ class NetworkManager {
                          orderBy: OrderBy,
                          with completion: @escaping ([URLS]) -> Void) {
         
-        var url = "https://api.unsplash.com/photos"
+        var url = self.url
+        url += "/photos"
         url += "?page=\(String(page))"
         url += "&per_page=\(String(perPage))"
         url += "&order_by=\(orderBy)"
-        
-        let headers: HTTPHeaders = [
-            "Authorization":
-            "Client-ID 8J_Nydt1h5gF5ANS5x1eM-VBGTnRk4xFCgCdIU4aGYs"
-        ]
+ 
+        let headers = self.headers
         
         AF.request(url, headers: headers)
             .validate()
             .responseJSON { response in
                 switch response.result {
-                    
                 case .success(let value):
                     guard let jsonData = value as? [[String: Any]] else { return }
+                    
                     var urlData: [[String: Any]] = []
                     var urls = [URLS]()
                     
                     for dictResult in jsonData {
-                        urlData.append(dictResult["urls"] as! [String : Any])
+                        urlData.append(dictResult["urls"] as? [String : Any] ?? ["": ""])
                     }
                     
                     for url in urlData {
-                        let urlModel = URLS(raw: url["raw"] as? String,
-                                            full: url["full"] as? String,
-                                            regular: url["regular"] as? String,
-                                            small: url["small"] as? String,
-                                            thumb: url["thumb"] as? String)
+                        let urlModel = URLS(url: url)
                         urls.append(urlModel)
                     }
                     
                     completion(urls)
-                    
                 case .failure(let error):
                     print(error)
                 }
         }
     }
+    
+    func fetchDataImage(imageUrl: String,
+                        with completion: @escaping (Data) -> Void) {
+        AF.request(imageUrl)
+            .responseData(completionHandler: { response in
+                switch response.result {
+                case .success(let data):
+                    completion(data)
+                case .failure(let error):
+                    print(error)
+                }
+            })
+    }
 }
+
